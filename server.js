@@ -26,17 +26,27 @@ app.use(cookieParser());
 
 app.get('/user/:username', (req, res) => {
   const { username } = req.params;
-  connection.query(
-    'SELECT * FROM users WHERE username = ? ',
-    [username],
-    (err, user) => {
-      if (err) {
-        res.status(500).send('Error collecting user info');
-      } else {
-        res.json(user[0]);
-      }
+  const token = req.cookies.token;
+
+  if (!token) {
+    res.status(401).send('Access unauthorized : No token provided');
+  } else {
+    let decoded = jwt.verify(token, 'secretKey');
+    console.log(decoded);
+    if (username === decoded.payload) {
+      connection.query(
+        'SELECT * FROM users WHERE username = ? ',
+        [username],
+        (err, user) => {
+          if (err) {
+            res.status(500).send('Error collecting user info');
+          } else {
+            res.json(user[0]);
+          }
+        }
+      );
     }
-  );
+  }
 });
 
 app.post('/register', (req, res) => {
@@ -85,7 +95,7 @@ app.post('/login', (req, res) => {
         const token = jwt.sign({ payload }, 'secretKey', { expiresIn: '90d' });
         const cookieOptions = {
           expiresIn: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), //in ms
-          httpOnly: false,
+          httpOnly: true,
         };
 
         res.cookie('token', token, cookieOptions);
